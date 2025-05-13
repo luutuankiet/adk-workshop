@@ -1,5 +1,7 @@
 import datetime
 from zoneinfo import ZoneInfo
+
+from google_crc32c import exc
 from google.adk.agents import Agent
 
 def get_weather(city: str) -> dict:
@@ -53,15 +55,19 @@ def get_current_time(city: str) -> dict:
     )
     return {"status": "success", "report": report}
 
+try:
+    root_agent = Agent(
+        name="weather_time_agent",
+        model="gemini-1.5-pro",
+        description=(
+            "Agent to answer questions about the time and weather in a city."
+        ),
+        instruction=(
+            "You are a helpful agent who can answer user questions about the time and weather in a city."
+        ),
+        tools=[get_weather, get_current_time],
+    )
+except Exception as e:
+    print(f"Error initializing agent: {e}")
 
-root_agent = Agent(
-    name="weather_time_agent",
-    model="gemini-1.5-pro",
-    description=(
-        "Agent to answer questions about the time and weather in a city."
-    ),
-    instruction=(
-        "You are a helpful agent who can answer user questions about the time and weather in a city."
-    ),
-    tools=[get_weather, get_current_time],
-)
+

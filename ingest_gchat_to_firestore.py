@@ -1,3 +1,4 @@
+from google.api_core.exceptions import InvalidArgument
 import json
 import os
 import asyncio
@@ -18,56 +19,54 @@ load_dotenv()
 class ProcessedChunk:
     url: str
     chunk_number: int
-    title: str
-    summary: str
     content: str
     metadata: Dict[str, Any]
     embedding: List[float]
 
-def chunk_text(text: str, chunk_size: int = 5000) -> List[str]:
-    """Split text into chunks, respecting code blocks and paragraphs."""
-    chunks = []
-    start = 0
-    text_length = len(text)
+# def chunk_text(text: str, chunk_size: int = 5000) -> List[str]:
+#     """Split text into chunks, respecting code blocks and paragraphs."""
+#     chunks = []
+#     start = 0
+#     text_length = len(text)
 
-    while start < text_length:
-        # Calculate end position
-        end = start + chunk_size
+#     while start < text_length:
+#         # Calculate end position
+#         end = start + chunk_size
 
-        # If we're at the end of the text, just take what's left
-        if end >= text_length:
-            chunks.append(text[start:].strip())
-            break
+#         # If we're at the end of the text, just take what's left
+#         if end >= text_length:
+#             chunks.append(text[start:].strip())
+#             break
 
-        # Try to find a code block boundary first ()
-        chunk = text[start:end]
-        code_block = chunk.rfind('')
-        if code_block != -1 and code_block > chunk_size * 0.3:
-            end = start + code_block
+#         # Try to find a code block boundary first ()
+#         chunk = text[start:end]
+#         code_block = chunk.rfind('')
+#         if code_block != -1 and code_block > chunk_size * 0.3:
+#             end = start + code_block
 
-        # If no code block, try to break at a paragraph
-        elif '\n\n' in chunk:
-            # Find the last paragraph break
-            last_break = chunk.rfind('\n\n')
-            if last_break > chunk_size * 0.3:  # Only break if we're past 30% of chunk_size
-                end = start + last_break
+#         # If no code block, try to break at a paragraph
+#         elif '\n\n' in chunk:
+#             # Find the last paragraph break
+#             last_break = chunk.rfind('\n\n')
+#             if last_break > chunk_size * 0.3:  # Only break if we're past 30% of chunk_size
+#                 end = start + last_break
 
-        # If no paragraph break, try to break at a sentence
-        elif '. ' in chunk:
-            # Find the last sentence break
-            last_period = chunk.rfind('. ')
-            if last_period > chunk_size * 0.3:  # Only break if we're past 30% of chunk_size
-                end = start + last_period + 1
+#         # If no paragraph break, try to break at a sentence
+#         elif '. ' in chunk:
+#             # Find the last sentence break
+#             last_period = chunk.rfind('. ')
+#             if last_period > chunk_size * 0.3:  # Only break if we're past 30% of chunk_size
+#                 end = start + last_period + 1
 
-        # Extract chunk and clean it up
-        chunk = text[start:end].strip()
-        if chunk:
-            chunks.append(chunk)
+#         # Extract chunk and clean it up
+#         chunk = text[start:end].strip()
+#         if chunk:
+#             chunks.append(chunk)
 
-        # Move start position for next chunk
-        start = max(start + 1, end)
+#         # Move start position for next chunk
+#         start = max(start + 1, end)
 
-    return chunks
+#     return chunks
 
 async def get_embedding(text: str) -> List[float]:
     """Get embedding vector from Vertex AI."""
@@ -84,6 +83,11 @@ async def get_embedding(text: str) -> List[float]:
         embedding = await loop.run_in_executor(None, call_embedding_model)
         
         return embedding
+    except InvalidArgument as e:
+        print(f"Invalid argument error: {e}")
+        # Return a zero vector with the same dimension as the model's output
+        # Gecko model typically returns 768-dimensional embeddings
+        # return [0.0] * 768
     except Exception as e:
         print(f"Error getting embedding from Vertex AI: {e}")
         # Return a zero vector with the same dimension as the model's output
@@ -101,9 +105,6 @@ async def insert_chunk(chunk: ProcessedChunk):
         # Convert the chunk to a dictionary for Firestore
         data = {
             "url": chunk.url,
-            "chunk_number": chunk.chunk_number,
-            "title": chunk.title,
-            "summary": chunk.summary,
             "content": chunk.content,
             "metadata": chunk.metadata,
             # Store embedding as a map of indices to values
@@ -113,7 +114,7 @@ async def insert_chunk(chunk: ProcessedChunk):
         }
         
         # Add to Firestore
-        collection_name = "gchat_messages"
+        collection_name = "gchat_messages_v2"
         doc_ref = db.collection(collection_name).document(doc_id)
         doc_ref.set(data)
         
@@ -124,11 +125,16 @@ async def insert_chunk(chunk: ProcessedChunk):
         return None
 
 # Initialize Firestore client
-db = firestore.Client(database='test-db')
+db = firestore.Client(
+    project='joon-sandbox',
+    database='test-db'
+)
 
 # Initialize Vertex AI
-project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-location = os.getenv("VERTEX_LOCATION", "us-central1")
+# project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+# location = os.getenv("VERTEX_LOCATION", "us-central1")
+project_id = "joon-sandbox"
+location = "asia-southeast1"
 vertexai.init(project=project_id, location=location)
 
 # Initialize Gemini model
@@ -142,31 +148,28 @@ async def process_gchat_message(message: Dict[str, Any], msg_number: int) -> Pro
     """Process a single chat message."""
     # Combine relevant message fields for embedding
     # Get message text from formattedText field
-    message_text = message.get('formattedText', '')
-    
-    content = f"""
-    Message Number: {msg_number}
-    Text: {message_text}
-    """
+    if not message.get('formattedText') and message.get('attachment'):
+        message_text = message['attachment'][0]['contentName']
+    else:
+        message_text = message.get('formattedText', '')
+
+    message_url = message.get('uri', '')
     
     # Get embedding
-    embedding = await get_embedding(content)
+    embedding = await get_embedding(message_text)
     
     # Create metadata
     metadata = {
         "source": "google_chat",
-        "timestamp": message.get('timestamp'),
-        "sender": message.get('sender'),
-        "message_type": message.get('type', 'text'),
-        "processed_at": datetime.now(timezone.utc).isoformat(),
+        "timestamp": message.get('createTime'),
+        "sender": message['sender']['name'],
+        "sender": message['space']['name'],
     }
     
     return ProcessedChunk(
-        url=f"gchat_message_{msg_number}",  # Using message number as URL
+        url=message_url,  # Using message number as URL
         chunk_number=msg_number,
-        title=f"Chat message from {message.get('sender')}",
-        summary=message.get('text', '')[:200],  # First 200 chars as summary
-        content=content,
+        content=message_text,
         metadata=metadata,
         embedding=embedding
     )
