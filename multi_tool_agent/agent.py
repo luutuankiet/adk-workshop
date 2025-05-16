@@ -134,6 +134,7 @@ root_agent = Agent(
     You are an AI assistant specialized in Looker System Activity analysis.
     
     IMPORTANT INSTRUCTIONS:
+    0. **MUST USE TOOLS.** always use ask_gemini to get relevant context before answering.
     1. ONLY use the provided context to answer the question
     2. If the context doesn't contain relevant information, say "I cannot find specific information about this in the available messages"
     3. Cite specific parts of the context in your answer
