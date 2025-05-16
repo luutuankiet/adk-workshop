@@ -36,10 +36,10 @@ gen_model = model = GenerativeModel(
     model_name="gemini-1.5-pro",
     generation_config=GenerationConfig(temperature=0))
 
-def search_vector_database(query: str):
+def search_vector_database(query: str) -> list:
     # For debugging - check if collection has documents
     all_docs = list(collection.limit(3).stream())
-    print(f"Collection has {len(all_docs)} documents")
+    # print(f"Collection has {len(all_docs)} documents")
     if not all_docs:
         return ["No documents found in the collection."]
 
@@ -67,18 +67,26 @@ def search_vector_database(query: str):
             return ["No relevant documents found for your query."]
 
         # Extract content from documents
-        context = [result.to_dict().get('content', '') for result in docs]
-        context_str = "\n\n".join(context)
+        context = [
+            {
+                "content": result.to_dict().get('content', ''),
+                "url": result.to_dict().get('url', '')
+                }
+            for result in docs
+            ]
+        # context_str = "\n\n".join(context)
 
     except Exception as e:
         print(f"Error in vector search: {e}")
-        context_str = f"Error performing vector search: {str(e)}"
+        context = f"Error performing vector search: {str(e)}"
+        # context_str = f"Error performing vector search: {str(e)}"
 
     # Don't delete this logging statement.
     # logging.info(
     #     context_str, extra={"labels": {"service": "joon-service", "component": "context"}}
     # )
-    return context_str
+    return context
+    # return context_str
 
 # TODO: Implement this function to pass Gemini the context data,
 # generate a response, and return the response text.
@@ -127,24 +135,52 @@ root_agent = Agent(
     name="system_activity_agent",
     model="gemini-1.5-pro",
     description=(
-        "Agent to answer questions about Looker's System Activity of ONE instance."
+        "Retrivial agent that helps user find related discussions and issues from previous incidents in their documents."
     ),
     instruction=(
-        """
-    You are an AI assistant specialized in Looker System Activity analysis.
-    
-    IMPORTANT INSTRUCTIONS:
-    0. **MUST USE TOOLS.** always use ask_gemini to get relevant context before answering.
-    1. ONLY use the provided context to answer the question
-    2. If the context doesn't contain relevant information, say "I cannot find specific information about this in the available messages"
-    3. Cite specific parts of the context in your answer
-    4. Do not make assumptions or inferences beyond what's explicitly stated in the context
-    5. Format your response as follows:
-        - Answer: [your response based strictly on context]
-        - Source Messages: [quote relevant parts of context]
+        """ 
+**ROLE:**
+You are a retrieval assistant designed to help users answer questions using only trusted, context-relevant information retrieved from a vector database.
+
+**REQUIRED BEHAVIOR:**
+
+1. **Mandatory First Step:**
+
+   * Always begin by calling the `search_vector_database` tool using a concise summary of the user’s question.
+   * This step is required *before* any answer attempt.
+
+2. **Restricted Source:**
+
+   * You are only allowed to answer questions using the content returned by `search_vector_database`.
+   * Do **not** use any external knowledge, memory, or assumptions.
+
+3. **No Answer Case:**
+
+   * If none of the returned documents directly relate to the question, respond:
+
+     ```
+     I cannot find specific information about this in the available messages.
+     ```
+
+4. **Citation and Reasoning:**
+
+   * Reference the retrieved content explicitly, quoting or summarizing the relevant passage(s).
+   * This is used to help the user comprehend the documents so that they can onboard the team.
+   * Guide the user through your thought process, explaining:
+     * Why the retrieved info answers (or doesn’t answer) the question
+     * What part of the context was most relevant
+     * Include the **original source URL or ID** of the content for verification
+   * Include additional document from the retrieved info that the user might want to explore, for the purpose of having an overview what info is available for their query.
+
+5. **Answer Format:**
+
+   * Begin with a direct answer (if available from context)
+   * Follow with a short explanation of how you found the answer from the retrieved messages.
+   * Close with the citation (e.g. `"Source: [doc-title](url)"`)
+
     """
     ),
-    tools=[ask_gemini],
+    tools=[search_vector_database],
     )
 
 # # Test both functions
@@ -159,4 +195,4 @@ def test_complete_response():
 
 # # Run tests
 # # test_search()
-test_complete_response()
+# test_complete_response()
