@@ -8,6 +8,9 @@ import vertexai
 from vertexai.generative_models import GenerativeModel, GenerationConfig
 from langchain_google_vertexai import VertexAIEmbeddings
 from google.adk.agents import Agent
+from google.adk.agents.llm_agent import LlmAgent
+from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioServerParameters
+
 
 # # Configure Cloud Logging
 # logging_client = google.cloud.logging.Client()
@@ -130,58 +133,75 @@ def ask_gemini(question: str) -> str:
     except Exception as e:
         return f"Error generating response: {str(e)}"
 
+async def mcp_filesystem():
+    return await MCPToolset.from_server(
+        connection_params=StdioServerParameters(
+            command='npx',
+            args=[
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                '/workspaces/EVERYTHING/joons/genai/google-chat-rag'
+            ]
 
-root_agent = Agent(
-    name="system_activity_agent",
-    model="gemini-1.5-pro",
-    description=(
-        "Retrivial agent that helps user find related discussions and issues from previous incidents in their documents."
-    ),
-    instruction=(
-        """ 
-**ROLE:**
-You are a retrieval assistant designed to help users answer questions using only trusted, context-relevant information retrieved from a vector database.
-
-**REQUIRED BEHAVIOR:**
-
-1. **Mandatory First Step:**
-
-   * Always begin by calling the `search_vector_database` tool using a concise summary of the user’s question.
-   * This step is required *before* any answer attempt.
-
-2. **Restricted Source:**
-
-   * You are only allowed to answer questions using the content returned by `search_vector_database`.
-   * Do **not** use any external knowledge, memory, or assumptions.
-
-3. **No Answer Case:**
-
-   * If none of the returned documents directly relate to the question, respond:
-
-     ```
-     I cannot find specific information about this in the available messages.
-     ```
-
-4. **Citation and Reasoning:**
-
-   * Reference the retrieved content explicitly, quoting or summarizing the relevant passage(s).
-   * This is used to help the user comprehend the documents so that they can onboard the team.
-   * Guide the user through your thought process, explaining:
-     * Why the retrieved info answers (or doesn’t answer) the question
-     * What part of the context was most relevant
-     * Include the **original source URL or ID** of the content for verification
-   * Include additional document from the retrieved info that the user might want to explore, for the purpose of having an overview what info is available for their query.
-
-5. **Answer Format:**
-
-   * Begin with a direct answer (if available from context)
-   * Follow with a short explanation of how you found the answer from the retrieved messages.
-   * Close with the citation (e.g. `"Source: [doc-title](url)"`)
-
-    """
-    ),
-    tools=[search_vector_database],
+        )
     )
+
+async def create_agent():
+    tools, exit_stack = await mcp_filesystem()
+    root_agent = Agent(
+        name="system_activity_agent",
+        model="gemini-1.5-pro",
+        description=(
+            "Retrivial agent that helps user find related discussions and issues from previous incidents in their documents."
+        ),
+    #     instruction=(
+    #         """ 
+    # **ROLE:**
+    # You are a retrieval assistant designed to help users answer questions using only trusted, context-relevant information retrieved from a vector database.
+
+    # **REQUIRED BEHAVIOR:**
+
+    # 1. **Mandatory First Step:**
+
+    #    * Always begin by calling the `search_vector_database` tool using a concise summary of the user’s question.
+    #    * This step is required *before* any answer attempt.
+
+    # 2. **Restricted Source:**
+
+    #    * You are only allowed to answer questions using the content returned by `search_vector_database`.
+    #    * Do **not** use any external knowledge, memory, or assumptions.
+
+    # 3. **No Answer Case:**
+
+    #    * If none of the returned documents directly relate to the question, respond:
+
+    #      ```
+    #      I cannot find specific information about this in the available messages.
+    #      ```
+
+    # 4. **Citation and Reasoning:**
+
+    #    * Reference the retrieved content explicitly, quoting or summarizing the relevant passage(s).
+    #    * This is used to help the user comprehend the documents so that they can onboard the team.
+    #    * Guide the user through your thought process, explaining:
+    #      * Why the retrieved info answers (or doesn’t answer) the question
+    #      * What part of the context was most relevant
+    #      * Include the **original source URL or ID** of the content for verification
+    #    * Include additional document from the retrieved info that the user might want to explore, for the purpose of having an overview what info is available for their query.
+
+    # 5. **Answer Format:**
+
+    #    * Begin with a direct answer (if available from context)
+    #    * Follow with a short explanation of how you found the answer from the retrieved messages.
+    #    * Close with the citation (e.g. `"Source: [doc-title](url)"`)
+
+    #     """
+    #     ),
+        tools=[*tools, search_vector_database],
+        # tools=[search_vector_database,tool],
+        )
+    
+    return root_agent, exit_stack
 
 # # Test both functions
 # def test_search():
@@ -193,6 +213,7 @@ def test_complete_response():
     result = ask_gemini(prompt)
     print(f"Complete response: {result}")
 
+root_agent = create_agent()
 # # Run tests
 # # test_search()
 # test_complete_response()

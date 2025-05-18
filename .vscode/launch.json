@@ -9,12 +9,26 @@
             "name": "Debug ADK",
             "type": "debugpy",
             "request": "launch",
-            "module": "adk",
             "console": "integratedTerminal",
-            "python": "/home/alice/miniconda3/bin/python",
+            "program": "${workspaceFolder}/.venv/bin/adk",
             "args": [
-                "run",
-                "multi_tool_agent"
+                "web",
+            ],
+        },
+
+        {
+            "name": "adk deploy",
+            "type": "debugpy",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "program": "${workspaceFolder}/.venv/bin/adk",
+            "args": [
+                "deploy",
+                "cloud_run",
+                "--project=joon-sandbox",
+                "--region=asia-southeast1",
+                "--with_ui",
+                "./multi_tool_agent"
             ],
         }
     ]
