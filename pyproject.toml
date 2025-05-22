@@ -5,7 +5,20 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "google-apps-chat>=0.2.5",
-    "google-auth-httplib2>=0.2.0",
-    "google-auth-oauthlib>=1.2.2",
+    "dotenv>=0.9.9",
+    "email-validator>=2.2.0",
+    "google-adk==0.0.4",
+    "google-apps-chat",
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
+    "google-cloud",
+    "google-cloud-aiplatform[adk,agent-engines]>=1.93.0",
+    "google-cloud-firestore",
+    "langchain-google-vertexai>=2.0.23",
+    "vertexai",
+]
+
+[dependency-groups]
+dev = [
+    "uv-bump>=0.1.2",
 ]
