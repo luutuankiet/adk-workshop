@@ -465,7 +465,7 @@ dev = [
 requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "email-validator", specifier = ">=2.2.0" },
-    { name = "google-adk", specifier = "==0.0.4" },
+    { name = "google-adk", specifier = "==1.0.0" },
     { name = "google-apps-chat" },
     { name = "google-auth-httplib2" },
     { name = "google-auth-oauthlib" },
@@ -481,7 +481,7 @@ dev = [{ name = "uv-bump", specifier = ">=0.1.2" }]
 
 [[package]]
 name = "google-adk"
-version = "0.0.4"
+version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "authlib" },
@@ -506,9 +506,9 @@ dependencies = [
     { name = "tzlocal" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4d/d8/5a8f536f5922f0890c0cd06f88731789591c31a5a2b067b5f3ef3c6d3c19/google_adk-0.0.4.tar.gz", hash = "sha256:eea81091e123df99439398b0eccaa6b9fa189172c6e4e54b2749cfb7de026b72", size = 1039701, upload-time = "2025-04-09T01:23:49.923Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/29/58/d04adcbd6c3c9feda372a79ebb7d4e1f8dc02fa2c5788420e84956851a58/google_adk-1.0.0.tar.gz", hash = "sha256:9a9efadd93c86031ebae44646f01abc347a3ed28079e94989d54c0cb77e68872", size = 1085619, upload-time = "2025-05-20T17:44:41.231Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1b/61/d998955db95fa1e6c32e94a24aa1f0b328f9936f8d708ebe0d7cf2d54305/google_adk-0.0.4-py3-none-any.whl", hash = "sha256:c18441fa4fe12c52e6cc478459334a052a423da9d0a1de95db157517c3d2bb9e", size = 1160024, upload-time = "2025-04-09T01:23:48.426Z" },
+    { url = "https://files.pythonhosted.org/packages/11/66/8cf150b753bc3314d0581eee214291a55ffe89ce7d9b555cbf0ce84256b4/google_adk-1.0.0-py3-none-any.whl", hash = "sha256:b9409c87cf01cbeb6de31a7b2892556501ddb075642139d1b9762c7c714ef1d4", size = 1229825, upload-time = "2025-05-20T17:44:39.367Z" },
 ]
 
 [[package]]
